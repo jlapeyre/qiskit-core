@@ -53,12 +53,15 @@ class PhaseEstimation(QuantumCircuit):
     def __init__(self,
                  num_evaluation_qubits: int,
                  unitary: QuantumCircuit,
+                 state_in: QuantumCircuit = None,
                  iqft: Optional[QuantumCircuit] = None,
                  name: str = 'QPE') -> None:
         """
         Args:
             num_evaluation_qubits: The number of evaluation qubits.
             unitary: The unitary operation :math:`U` which will be repeated and controlled.
+            state_in: The circuit that creates the eigenstate of unitary. If state_in is omitted,
+                then eigenstate is the zero state.
             iqft: A inverse Quantum Fourier Transform, per default the inverse of
                 :class:`~qiskit.circuit.library.QFT` is used. Note that the QFT should not include
                 the usual swaps!
@@ -87,6 +90,9 @@ class PhaseEstimation(QuantumCircuit):
 
         if iqft is None:
             iqft = QFT(num_evaluation_qubits, inverse=True, do_swaps=False)
+
+        if not state_in is None:
+            self.append(state_in, qr_state[:])
 
         self.h(qr_eval)  # hadamards on evaluation qubits
 
