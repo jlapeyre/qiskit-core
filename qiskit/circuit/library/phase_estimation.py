@@ -88,6 +88,10 @@ class PhaseEstimation(QuantumCircuit):
         qr_state = QuantumRegister(unitary.num_qubits, 'q')
         super().__init__(qr_eval, qr_state, name=name)
 
+        self._num_evaluation_qubits = num_evaluation_qubits
+        import math
+        self._num_unitary_qubits = unitary.num_qubits
+
         if iqft is None:
             iqft = QFT(num_evaluation_qubits, inverse=True, do_swaps=False)
 
@@ -100,3 +104,11 @@ class PhaseEstimation(QuantumCircuit):
             self.append(unitary.power(2**j).control(), [j] + qr_state[:])
 
         self.append(iqft, qr_eval[:])  # final QFT
+
+    @property
+    def num_evaluation_qubits(self):
+        return self._num_evaluation_qubits
+
+    @property
+    def num_unitary_qubits(self):
+        return self._num_unitary_qubits
