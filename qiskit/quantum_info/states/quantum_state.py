@@ -15,16 +15,21 @@ Abstract QuantumState class.
 """
 
 import copy
+import abc
 from abc import abstractmethod
+import plum
+from plum import Dispatcher, Self, dispatch
 
 import numpy as np
 
 from qiskit.quantum_info.operators.operator import Operator
 from qiskit.result.counts import Counts
 
-
-class QuantumState:
+                     # TODO: sort out this metaclass mess
+class QuantumState:  #(metaclass=plum.Referentiable(abc.ABCMeta)):
     """Abstract quantum state base class"""
+
+    dispatch = plum.Dispatcher(in_class=Self)
 
     def __init__(self, op_shape=None):
         """Initialize a QuantumState object.
@@ -71,14 +76,17 @@ class QuantumState:
         """Make a copy of current operator."""
         return copy.deepcopy(self)
 
-    def seed(self, value=None):
-        """Set the seed for the quantum state RNG."""
-        if value is None:
-            self._rng_generator = None
-        elif isinstance(value, np.random.Generator):
-            self._rng_generator = value
-        else:
-            self._rng_generator = np.random.default_rng(value)
+    @dispatch
+    def seed(self):
+        self._rng_generator = None
+
+    @dispatch
+    def seed(self, value: np.random.Generator):
+        self._rng_generator = value
+
+    @dispatch
+    def seed(self, value):
+        self._rng_generator = np.random.default_rng(value)
 
     @abstractmethod
     def is_valid(self, atol=None, rtol=None):
@@ -335,7 +343,7 @@ class QuantumState:
         # diagonal matrix multiplication
         ret = self.evolve(
             Operator(np.diag(proj), input_dims=dims, output_dims=dims),
-            qargs=qargs)
+            qargs)
 
         return outcome, ret
 
@@ -519,7 +527,7 @@ class QuantumState:
     def __matmul__(self, other):
         # Check for subsystem case return by __call__ method
         if isinstance(other, tuple) and len(other) == 2:
-            return self.evolve(other[0], qargs=other[1])
+            return self.evolve(other[0], other[1])
         return self.evolve(other)
 
     def __xor__(self, other):

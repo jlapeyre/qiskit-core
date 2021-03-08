@@ -17,6 +17,7 @@ ScalarOp class
 import copy
 from numbers import Number
 import numpy as np
+import plum
 
 from qiskit.exceptions import QiskitError
 from qiskit.quantum_info.operators.base_operator import BaseOperator
@@ -34,6 +35,9 @@ class ScalarOp(LinearOp):
     kinds of operator subclasses by using the :meth:`compose`, :meth:`dot`,
     :meth:`tensor`, :meth:`expand` methods.
     """
+
+    dispatch = plum.Dispatcher(in_class=plum.Self)
+
     def __init__(self, dims=None, coeff=1):
         """Initialize an operator object.
 
@@ -45,6 +49,7 @@ class ScalarOp(LinearOp):
         Raises:
             QiskitError: If the optional coefficient is invalid.
         """
+
         if not isinstance(coeff, Number):
             QiskitError("coeff {} must be a number.".format(coeff))
         self._coeff = coeff
@@ -143,31 +148,49 @@ class ScalarOp(LinearOp):
         ret._coeff = self.coeff ** n
         return ret
 
-    def tensor(self, other):
-        if not isinstance(other, BaseOperator):
-            other = Operator(other)
+    @dispatch
+    def tensor(self, other): return self.tensor(Operator(other))
 
-        if isinstance(other, ScalarOp):
-            ret = copy.copy(self)
-            ret._coeff = self.coeff * other.coeff
-            ret._op_shape = self._op_shape.tensor(other._op_shape)
-            return ret
-
+    @dispatch
+    def tensor(self, other: BaseOperator):
         return other.expand(self)
 
-    def expand(self, other):
-        if not isinstance(other, BaseOperator):
-            other = Operator(other)
+    @dispatch
+    def tensor(self, other: plum.Self):
+        ret = copy.copy(self)
+        ret._coeff = self.coeff * other.coeff
+        ret._op_shape = self._op_shape.tensor(other._op_shape)
+        return ret
 
-        if isinstance(other, ScalarOp):
-            ret = copy.copy(self)
-            ret._coeff = self.coeff * other.coeff
-            ret._op_shape = self._op_shape.expand(other._op_shape)
-            return ret
-
+    @dispatch
+    def expand(self, other: BaseOperator):
         return other.tensor(self)
 
-    def _add(self, other, qargs=None):
+    @dispatch
+    def expand(self, other: plum.Self):
+        ret = copy.copy(self)
+        ret._coeff = self.coeff * other.coeff
+        ret._op_shape = self._op_shape.expand(other._op_shape)
+        return ret
+
+    @dispatch
+    def expand(self, other): return self.expand(Operator(other))
+
+    @dispatch
+    def _add(self, other):
+        qargs = getattr(other, 'qargs', None)
+        return self._add(other, qargs)
+
+    @dispatch
+    def _add(self, other, qargs): return self._add(BaseOperator(other), qargs)
+
+    @dispatch
+    def _add(self, other: plum.Self, qargs):
+        self._op_shape._validate_add(other._op_shape, qargs) # tests pass without this line
+        return ScalarOp(self.input_dims(), coeff=self.coeff+other.coeff)
+
+    @dispatch
+    def _add(self, other: BaseOperator, qargs):
         """Return the operator self + other.
 
         If ``qargs`` are specified the other operator will be added
@@ -185,17 +208,7 @@ class ScalarOp(LinearOp):
         Raises:
             QiskitError: if other has incompatible dimensions.
         """
-        if qargs is None:
-            qargs = getattr(other, 'qargs', None)
-
-        if not isinstance(other, BaseOperator):
-            other = Operator(other)
-
         self._op_shape._validate_add(other._op_shape, qargs)
-
-        # Next if we are adding two ScalarOps we return a ScalarOp
-        if isinstance(other, ScalarOp):
-            return ScalarOp(self.input_dims(), coeff=self.coeff+other.coeff)
 
         # If qargs are specified we have to pad the other BaseOperator
         # with identities on remaining subsystems. We do this by
@@ -214,7 +227,10 @@ class ScalarOp(LinearOp):
         # final dimensions.
         return other.reshape(self.input_dims(), self.output_dims())._add(self)
 
-    def _multiply(self, other):
+    # This will throw a method lookup error if other is not a Number.
+    # This may be preferrable/easier than the isinstance check in the code
+    @dispatch
+    def _multiply(self, other: Number):
         """Return the ScalarOp other * self.
 
         Args:
@@ -226,14 +242,15 @@ class ScalarOp(LinearOp):
         Raises:
             QiskitError: if other is not a valid complex number.
         """
-        if not isinstance(other, Number):
-            raise QiskitError("other ({}) is not a number".format(other))
+        # if not isinstance(other, Number):
+        #     raise QiskitError("other ({}) is not a number".format(other))
         ret = self.copy()
         ret._coeff = other * self.coeff
         return ret
 
     @staticmethod
-    def _pad_with_identity(current, other, qargs=None):
+    @dispatch
+    def _pad_with_identity(current, other, qargs):
         """Pad another operator with identities.
 
         Args:
@@ -244,9 +261,11 @@ class ScalarOp(LinearOp):
         Returns:
             BaseOperator: the padded operator.
         """
-        if qargs is None:
-            return other
         return ScalarOp(current.input_dims()).compose(other, qargs=qargs)
+
+    @staticmethod
+    @dispatch
+    def _pad_with_identity(current, other): return other
 
 
 # Update docstrings for API docs

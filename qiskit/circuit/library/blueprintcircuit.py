@@ -13,12 +13,12 @@
 """Blueprint circuit object."""
 
 from typing import Optional
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit.parametertable import ParameterTable
 
 
-class BlueprintCircuit(QuantumCircuit, ABC):
+class BlueprintCircuit(QuantumCircuit):
     """Blueprint circuit object.
 
     In many applications it is necessary to pass around the structure a circuit will have without
@@ -42,7 +42,7 @@ class BlueprintCircuit(QuantumCircuit, ABC):
         self._qubits = []
         self._qubit_set = set()
 
-    @abstractmethod
+
     def _check_configuration(self, raise_on_failure: bool = True) -> bool:
         """Check if the current configuration allows the circuit to be built.
 

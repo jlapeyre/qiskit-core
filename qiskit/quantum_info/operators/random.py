@@ -17,6 +17,8 @@ Methods to create random operators.
 import numpy as np
 from numpy.random import default_rng
 
+from plum import dispatch
+
 from qiskit.quantum_info.operators import Operator, Stinespring
 from qiskit.exceptions import QiskitError
 
@@ -27,7 +29,7 @@ from .symplectic.random import random_pauli_table
 from .symplectic.random import random_stabilizer_table
 
 DEFAULT_RNG = default_rng()
-
+NoneType = type(None)
 
 def random_unitary(dims, seed=None):
     """Return a random unitary Operator.
@@ -42,18 +44,20 @@ def random_unitary(dims, seed=None):
     Returns:
         Operator: a unitary operator.
     """
-    if seed is None:
-        random_state = DEFAULT_RNG
-    elif isinstance(seed, np.random.Generator):
-        random_state = seed
-    else:
-        random_state = default_rng(seed)
+    return _random_unitary(dims, seed)
 
+@dispatch
+def _random_unitary(dims, seed: NoneType): return random_unitary(dims, DEFAULT_RNG)
+
+@dispatch
+def _random_unitary(dims, seed): return random_unitary(dims, default_rng(seed))
+
+@dispatch
+def _random_unitary(dims, random_state: np.random.Generator):
     dim = np.product(dims)
     from scipy import stats
     mat = stats.unitary_group.rvs(dim, random_state=random_state)
     return Operator(mat, input_dims=dims, output_dims=dims)
-
 
 def random_hermitian(dims, traceless=False, seed=None):
     """Return a random hermitian Operator.

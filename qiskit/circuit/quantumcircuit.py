@@ -52,8 +52,16 @@ try:
 except Exception:  # pylint: disable=broad-except
     HAS_PYGMENTS = False
 
+import plum
+from plum import Dispatcher, Self, dispatch
+import abc
 
-class QuantumCircuit:
+# a bit faster to do this once
+NoneType = type(None)
+
+class QuantumCircuit(metaclass=plum.Referentiable(abc.ABCMeta)):
+
+    dispatch = Dispatcher(in_class=Self)
     """Create a new circuit.
 
     A circuit is a list of instructions bound to some registers.
@@ -269,20 +277,27 @@ class QuantumCircuit:
         """
         return self._metadata
 
+    # Alternative; omit this method and get a method lookup error.
+    # Omitting would be more useful if the dispatcher prints the nearest matches.
     @metadata.setter
+    @dispatch
     def metadata(self, metadata):
+        raise TypeError("Only a dictionary or None is accepted for circuit metadata")
+
+    @metadata.setter
+    @dispatch
+    def metadata(self, metadata: {dict, NoneType}):
         """Update the circuit metadata"""
-        if not isinstance(metadata, dict) and metadata is not None:
-            raise TypeError("Only a dictionary or None is accepted for circuit metadata")
         self._metadata = metadata
 
     def __str__(self):
         return str(self.draw(output='text'))
 
-    def __eq__(self, other):
-        if not isinstance(other, QuantumCircuit):
-            return False
+    @dispatch
+    def __eq__(self, other): return False
 
+    @dispatch
+    def __eq__(self, other: Self):
         # TODO: remove the DAG from this function
         from qiskit.converters import circuit_to_dag
         return circuit_to_dag(self) == circuit_to_dag(other)
@@ -302,7 +317,9 @@ class QuantumCircuit:
         """Return the prefix to use for auto naming."""
         return cls.prefix
 
-    def has_register(self, register):
+
+    @dispatch
+    def has_register(self, register: QuantumRegister):
         """
         Test if this circuit has the register r.
 
@@ -312,14 +329,11 @@ class QuantumCircuit:
         Returns:
             bool: True if the register is contained in this circuit.
         """
-        has_reg = False
-        if (isinstance(register, QuantumRegister) and
-                register in self.qregs):
-            has_reg = True
-        elif (isinstance(register, ClassicalRegister) and
-              register in self.cregs):
-            has_reg = True
-        return has_reg
+        return register in self.qregs
+
+    @dispatch
+    def has_register(self, register: ClassicalRegister):
+        return register in self.cregs
 
     def reverse_ops(self):
         """Reverse the circuit by reversing the order of instructions.
