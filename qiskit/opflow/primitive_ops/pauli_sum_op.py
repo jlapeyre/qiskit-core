@@ -114,6 +114,8 @@ class PauliSumOp(PrimitiveOp):
             )
 
         if isinstance(other, PauliSumOp):
+            if isinstance(self.coeff, ParameterExpression) or isinstance(other.coeff, ParameterExpression):
+                return SummedOp([self, other])
             return PauliSumOp(self.coeff * self.primitive + other.coeff * other.primitive, coeff=1)
 
         if isinstance(other, PauliOp):
