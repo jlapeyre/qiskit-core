@@ -43,8 +43,6 @@ from qiskit.utils.multiprocessing import is_main_process
 from qiskit.circuit.instruction import Instruction
 from qiskit.circuit.gate import Gate
 from qiskit.circuit.parameter import Parameter
-from qiskit.qasm.qasm import Qasm
-from qiskit.qasm.exceptions import QasmError
 from qiskit.circuit.exceptions import CircuitError
 from .parameterexpression import ParameterExpression, ParameterValueType
 from .quantumregister import QuantumRegister, Qubit, AncillaRegister, AncillaQubit
@@ -1614,11 +1612,14 @@ class QuantumCircuit:
         Raises:
             MissingOptionalLibraryError: If pygments is not installed and ``formatted`` is
                 ``True``.
-            QasmError: If circuit has free parameters.
+            QASM2ExportError: If circuit has free parameters.
         """
+        from qiskit.qasm2 import QASM2ExportError  # pylint: disable=cyclic-import
 
         if self.num_parameters > 0:
-            raise QasmError("Cannot represent circuits with unbound parameters in OpenQASM 2.")
+            raise QASM2ExportError(
+                "Cannot represent circuits with unbound parameters in OpenQASM 2."
+            )
 
         existing_gate_names = [
             "barrier",
@@ -2507,6 +2508,8 @@ class QuantumCircuit:
         Return:
           QuantumCircuit: The QuantumCircuit object for the input QASM
         """
+        from qiskit.qasm import Qasm  # pylint: disable=cyclic-import
+
         qasm = Qasm(filename=path)
         return _circuit_from_qasm(qasm)
 
@@ -2519,6 +2522,8 @@ class QuantumCircuit:
         Return:
           QuantumCircuit: The QuantumCircuit object for the input QASM
         """
+        from qiskit.qasm import Qasm  # pylint: disable=cyclic-import
+
         qasm = Qasm(data=qasm_str)
         return _circuit_from_qasm(qasm)
 
@@ -4858,7 +4863,7 @@ class QuantumCircuit:
         return 0  # If there are no instructions over bits
 
 
-def _circuit_from_qasm(qasm: Qasm) -> "QuantumCircuit":
+def _circuit_from_qasm(qasm) -> "QuantumCircuit":
     # pylint: disable=cyclic-import
     from qiskit.converters import ast_to_dag
     from qiskit.converters import dag_to_circuit
