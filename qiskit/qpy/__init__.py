@@ -126,6 +126,63 @@ There is a circuit payload for each circuit (where the total number is dictated
 by ``num_circuits`` in the file header). There is no padding between the
 circuits in the data.
 
+.. _qpy_version_8:
+
+Version 8
+=========
+
+Version 8 adds support for handling a :class:`~.TranspileLayout` stored in the
+:attr:`.QuantumCircuit.layout` attribute. In version 8 immediately following the
+calibrations block at the end of the circuit payload there is now the
+``LAYOUT`` struct. This struct outlines the size of the three attributes of a
+:class:`~.TranspileLayout` class.
+
+LAYOUT
+------
+
+.. code-block:: c
+
+    struct {
+        char exists;
+        int32_t initial_layout_size;
+        int32_t input_mapping_size;
+        int32_t final_layout_size;
+        uint32_t extra_registers;
+    }
+
+If any of the signed values are ``-1`` this indicates the corresponding
+attribute is ``None``.
+
+Immediately following the ``LAYOUT`` struct there is a :ref:`qpy_registers` struct
+for ``extra_registers`` (specifically the format introduced in :ref:`qpy_version_4`)
+standalone register definitions that aren't present in the circuit. Then there
+are ``initial_layout_size`` ``INITIAL_LAYOUT_BIT`` structs to define the
+:attr:`.TranspileLayout.initial_layout` attribute.
+
+INITIAL_LAYOUT_BIT
+------------------
+
+.. code-block:: c
+
+    struct {
+        int32_t index;
+        int32_t register_size;
+    }
+
+Where a value of ``-1`` indicates ``None`` (as in no register is associated
+with the bit). Following each ``INITIAL_LAYOUT_BIT`` struct is ``register_size``
+bytes for a ``utf8`` encoded string for the register name.
+
+Following the initial layout there is ``input_mapping_size`` array of
+``uint32_t`` integers representing the positions of the phyiscal bit from the
+initial layout. This enables constructing a list of virtual bits where the
+array index is its input mapping position.
+
+Finally, there is an array of ``final_layout_size`` ``uint32_t`` integers. Each
+element is an index in the circuit's ``qubits`` attribute which enables building
+a mapping from qubit starting position to the output position at the end of the
+circuit.
+
 .. _qpy_version_7:
 
 Version 7
@@ -165,6 +222,12 @@ the standard value encoding in QPY uses ``s`` type character for string data,
 which conflicts with the :class:`~qiskit.pulse.library.SymbolicPulse` in the scope of
 pulse instruction operands. A special type character ``o`` is reserved for
 the string data that appears in the pulse instruction operands.
+
+In addition, version 7 adds two new type keys to the INSTRUCTION_PARM struct.  ``"d"`` is followed
+by no data and represents the literal value :data:`.CASE_DEFAULT` for switch-statement support.
+``"R"`` represents a :class:`.ClassicalRegister` or :class:`.Clbit`, and is followed by the same
+format as the description of register or classical bit as used in the first element of :ref:`the
+condition of an INSTRUCTION field <qpy_instructions>`.
 
 .. _qpy_version_6:
 
