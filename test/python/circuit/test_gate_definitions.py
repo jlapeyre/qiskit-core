@@ -282,6 +282,7 @@ class TestGateEquivalenceEqual(QiskitTestCase):
         "PermutationGate",
         "Commuting2qBlock",
         "PauliEvolutionGate",
+        "_DefinedGate",
     }
     # Amazingly, Python's scoping rules for class bodies means that this is the closest we can get
     # to a "natural" comprehension or functional iterable definition:
@@ -292,6 +293,8 @@ class TestGateEquivalenceEqual(QiskitTestCase):
         have equal matrix representations"""
         n_params = len(_get_free_params(gate_class))
         params = [0.1 * i for i in range(1, n_params + 1)]
+        if gate_class.__name__ in ["_U0Gate"]:
+            params = [2]
         if gate_class.__name__ == "RXXGate":
             params = [np.pi / 2]
         if gate_class.__name__ in ["MSGate"]:
