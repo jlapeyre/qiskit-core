@@ -129,11 +129,11 @@ impl BuilderState {
         &mut self,
         py: Python,
         ast_symbols: &SymbolTable,
-        call: &asg::GateCall,
+        call: &asg::GateCallExpr,
     ) -> PyResult<()> {
-        if call.modifier().is_some() {
-            return Err(QASM3ImporterError::new_err("gate modifiers not handled"));
-        }
+        // if call.modifier().is_some() {
+        //     return Err(QASM3ImporterError::new_err("gate modifiers not handled"));
+        // }
         let gate_id = call
             .name()
             .as_ref()
@@ -365,12 +365,22 @@ pub fn convert_asg(
     };
     for statement in program.stmts().iter() {
         match statement {
-            asg::Stmt::GateCall(call) => state.call_gate(py, ast_symbols, call)?,
             asg::Stmt::DeclareClassical(decl) => state.declare_classical(py, ast_symbols, decl)?,
             asg::Stmt::DeclareQuantum(decl) => state.declare_quantum(py, ast_symbols, decl)?,
             asg::Stmt::GateDeclaration(decl) => state.define_gate(py, ast_symbols, decl)?,
             asg::Stmt::Barrier(barrier) => state.apply_barrier(py, ast_symbols, barrier)?,
             asg::Stmt::Assignment(assignment) => state.assign(py, ast_symbols, assignment)?,
+            asg::Stmt::ExprStmt(texpr) => {
+                match (texpr.expression(), texpr.get_type()) {
+                    (asg::Expr::GateCallExpr(call), _ty) => state.call_gate(py, ast_symbols, call)?,
+                    _ => {
+                        return Err(QASM3ImporterError::new_err(format!(
+                            "this statement is not yet handled during OpenQASM 3 import: {:?}",
+                            statement
+                        )));
+                    }
+                }
+            }
             asg::Stmt::Alias
             | asg::Stmt::AnnotatedStmt(_)
             | asg::Stmt::Block(_)
@@ -382,7 +392,6 @@ pub fn convert_asg(
             | asg::Stmt::DefCal
             | asg::Stmt::Delay
             | asg::Stmt::End
-            | asg::Stmt::ExprStmt(_)
             | asg::Stmt::Extern
             | asg::Stmt::For
             | asg::Stmt::GPhaseCall(_)
