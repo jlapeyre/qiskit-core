@@ -131,9 +131,6 @@ impl BuilderState {
         ast_symbols: &SymbolTable,
         call: &asg::GateCall,
     ) -> PyResult<()> {
-        if call.modifiers().len() > 0 {
-            return Err(QASM3ImporterError::new_err("gate modifiers not handled"));
-        }
         let gate_id = call
             .name()
             .as_ref()
@@ -168,7 +165,29 @@ impl BuilderState {
                 qargs.len(),
             )));
         }
-        let gate_instance = gate.construct(py, params)?;
+        let mut gate_instance = gate.construct(py, params)?;
+        for modifier in call.modifiers() {
+            match modifier {
+                asg::GateModifier::Inv => { gate_instance = gate_instance.call_method0(py, "inverse").ok().unwrap(); },
+
+                asg::GateModifier::Pow(exponent) => {
+                    match exponent.expression() {
+                        asg::Expr::Literal(asg::Literal::Float(floatliteral)) => {
+                            let fv: f64 = floatliteral.value().parse().ok().unwrap();
+                            gate_instance = gate_instance.call_method1(py, "power", (fv,)).ok().unwrap();
+                        },
+                        _ => {
+                            return Err(QASM3ImporterError::new_err("Only literal float exponents supported in `pow` gate modifier"));
+                        }
+                    }
+                },
+
+                asg::GateModifier::Ctrl(_)
+                    | asg::GateModifier::NegCtrl(_) => {
+                        return Err(QASM3ImporterError::new_err("gate modifiers ctrl, negctrl, and pow, not handled"));
+                    }
+            }
+        }
         for qubits in expr::broadcast_qubits(py, &self.symbols, ast_symbols, qargs)? {
             self.qc.append(
                 py,
