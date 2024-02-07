@@ -399,6 +399,8 @@ pub fn convert_asg(
             | asg::Stmt::ExprStmt(_)
             | asg::Stmt::Extern
             | asg::Stmt::For
+            | asg::Stmt::ModifiedGPhaseCall(_)
+            | asg::Stmt::SwitchCaseStmt(_)
             | asg::Stmt::GPhaseCall(_)
             | asg::Stmt::IODeclaration
             | asg::Stmt::If(_)
