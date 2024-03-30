@@ -34,6 +34,7 @@ mod stochastic_swap;
 mod two_qubit_decompose;
 mod utils;
 mod vf2_layout;
+mod xx_decompose;
 
 #[inline]
 pub fn getenv_use_multiple_threads() -> bool {
