@@ -181,7 +181,7 @@ pub trait TraceToFidelity {
 
 impl TraceToFidelity for Complex64 {
     fn trace_to_fid(self) -> f64 {
-        (4.0 + self.abs().powi(2)) / 20.0
+        (4.0 + self.norm_sqr()) / 20.0
     }
 }
 
