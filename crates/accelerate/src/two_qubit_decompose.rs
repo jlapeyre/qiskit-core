@@ -41,6 +41,7 @@ use ndarray::Zip;
 use numpy::PyReadonlyArray2;
 use numpy::{IntoPyArray, ToPyArray};
 
+use crate::gates::rz_matrix;
 use crate::convert_2q_block_matrix::change_basis;
 use crate::euler_one_qubit_decomposer::{
     angles_from_unitary, det_one_qubit, unitary_to_gate_sequence_inner, EulerBasis,
@@ -333,14 +334,6 @@ fn ry_matrix(theta: f64) -> Array2<Complex64> {
     let cos = Complex64::new(half_theta.cos(), 0.);
     let sin = Complex64::new(half_theta.sin(), 0.);
     array![[cos, -sin], [sin, cos]]
-}
-
-fn rz_matrix(theta: f64) -> Array2<Complex64> {
-    let ilam2 = Complex64::new(0., 0.5 * theta);
-    array![
-        [(-ilam2).exp(), Complex64::new(0., 0.)],
-        [Complex64::new(0., 0.), ilam2.exp()]
-    ]
 }
 
 static HGATE: [[Complex64; 2]; 2] = [

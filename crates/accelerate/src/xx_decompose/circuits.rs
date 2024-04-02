@@ -1,4 +1,10 @@
+use std::f64::consts::PI;
+use ndarray::prelude::*;
+use ndarray::linalg::kron;
 use crate::xx_decompose::utilities::{safe_acos, Square};
+use crate::gates::{rz_matrix, rxx_matrix, ryy_matrix};
+
+const PI2 : f64 = PI / 2.0;
 
 fn decompose_xxyy_into_xxyy_xx(
     a_target: f64,
@@ -6,7 +12,7 @@ fn decompose_xxyy_into_xxyy_xx(
     a_source: f64,
     b_source: f64,
     interaction: f64,
-) {
+) -> [f64; 6] {
     let cplus = (a_source + b_source).cos();
     let cminus = (a_source - b_source).cos();
     let splus = (a_source + b_source).sin();
@@ -27,92 +33,46 @@ fn decompose_xxyy_into_xxyy_xx(
         );
 
     let (u, v) = ((uplusv + uminusv) / 2., (uplusv - uminusv) / 2.);
+
+    let middle_matrix = rxx_matrix(2. * a_source)
+        .dot(&ryy_matrix(2. * b_source))
+        .dot(&kron(&rz_matrix(2. * u), &rz_matrix(2. * v)))
+        .dot(&rxx_matrix(2. * interaction));
+
+    let phase_solver = {
+        let q = 1. / 4.;
+        let mq = - 1. / 4.;
+        array![
+            [q, q, q, q],
+            [q, mq, mq, q],
+            [q, q, mq, mq],
+            [q, mq, q, mq],
+        ]
+    };
+    let inner_phases = array![
+        middle_matrix[[0, 0]].arg(), middle_matrix[[1, 1]].arg(),
+        middle_matrix[[1, 2]].arg() + PI2,
+        middle_matrix[[0, 3]].arg() + PI2,
+    ];
+    let [mut r, mut s, mut x, mut y] = {
+        let p = phase_solver.dot(&inner_phases);
+        [p[0],p[1],p[2],p[3]]
+    };
+
+    let generated_matrix =
+        kron(&rz_matrix(2. * r), &rz_matrix(2. * s))
+        .dot(&middle_matrix)
+        .dot(&kron(&rz_matrix(2. * x), &rz_matrix(2. * y)));
+
+    // If there's a phase discrepancy, need to conjugate by an extra Z/2 (x) Z/2.
+    if ((generated_matrix[[3, 0]].arg().abs() - PI2) < 0.01
+        && a_target > b_target)
+        || ((generated_matrix[[3, 0]].arg().abs() + PI2) < 0.01
+            && a_target < b_target) {
+            x += PI / 4.;
+            y += PI / 4.;
+            r -= PI / 4.;
+            s -= PI / 4.;
+        }
+    [r, s, u, v, x, y]
 }
-
-//     cplus, cminus = np.cos(a_source + b_source), np.cos(a_source - b_source)
-//     splus, sminus = np.sin(a_source + b_source), np.sin(a_source - b_source)
-//     ca, sa = np.cos(interaction), np.sin(interaction)
-
-//     uplusv = (
-//         1
-//         / 2
-//         * safe_arccos(
-//             cminus**2 * ca**2 + sminus**2 * sa**2 - np.cos(a_target - b_target) ** 2,
-//             2 * cminus * ca * sminus * sa,
-//         )
-//     )
-//     uminusv = (
-//         1
-//         / 2
-//         * safe_arccos(
-//             cplus**2 * ca**2 + splus**2 * sa**2 - np.cos(a_target + b_target) ** 2,
-//             2 * cplus * ca * splus * sa,
-//         )
-//     )
-
-//     u, v = (uplusv + uminusv) / 2, (uplusv - uminusv) / 2
-
-//     # NOTE: the target matrix is phase-free
-//     middle_matrix = reduce(
-//         np.dot,
-//         [
-//             RXXGate(2 * a_source).to_matrix() @ RYYGate(2 * b_source).to_matrix(),
-//             np.kron(RZGate(2 * u).to_matrix(), RZGate(2 * v).to_matrix()),
-//             RXXGate(2 * interaction).to_matrix(),
-//         ],
-//     )
-
-//     phase_solver = np.array(
-//         [
-//             [
-//                 1 / 4,
-//                 1 / 4,
-//                 1 / 4,
-//                 1 / 4,
-//             ],
-//             [
-//                 1 / 4,
-//                 -1 / 4,
-//                 -1 / 4,
-//                 1 / 4,
-//             ],
-//             [
-//                 1 / 4,
-//                 1 / 4,
-//                 -1 / 4,
-//                 -1 / 4,
-//             ],
-//             [
-//                 1 / 4,
-//                 -1 / 4,
-//                 1 / 4,
-//                 -1 / 4,
-//             ],
-//         ]
-//     )
-//     inner_phases = [
-//         np.angle(middle_matrix[0, 0]),
-//         np.angle(middle_matrix[1, 1]),
-//         np.angle(middle_matrix[1, 2]) + np.pi / 2,
-//         np.angle(middle_matrix[0, 3]) + np.pi / 2,
-//     ]
-//     r, s, x, y = np.dot(phase_solver, inner_phases)
-
-//     # If there's a phase discrepancy, need to conjugate by an extra Z/2 (x) Z/2.
-//     generated_matrix = reduce(
-//         np.dot,
-//         [
-//             np.kron(RZGate(2 * r).to_matrix(), RZGate(2 * s).to_matrix()),
-//             middle_matrix,
-//             np.kron(RZGate(2 * x).to_matrix(), RZGate(2 * y).to_matrix()),
-//         ],
-//     )
-//     if (abs(np.angle(generated_matrix[3, 0]) - np.pi / 2) < 0.01 and a_target > b_target) or (
-//         abs(np.angle(generated_matrix[3, 0]) + np.pi / 2) < 0.01 and a_target < b_target
-//     ):
-//         x += np.pi / 4
-//         y += np.pi / 4
-//         r -= np.pi / 4
-//         s -= np.pi / 4
-
-//     return r, s, u, v, x, y
