@@ -31,6 +31,37 @@ fn kron_id2_oneq(oneq_mat: ArrayView2<Complex64>) -> Array2<Complex64> {
     ]
 }
 
+// Some kind of name convention for signifying the difference between allocating and
+// non-allocating would be useful.
+// Compute `kron(identity, mat)` for 2x2 matrix inputs
+fn kron_id2_oneq_pre_alloc(output: &mut Array2<Complex64>, oneq_mat: ArrayView2<Complex64>) {
+    let _zero = Complex64::new(0., 0.);
+    (
+        output[[0, 0]],
+        output[[0, 1]],
+        output[[0, 2]],
+        output[[0, 3]],
+    ) = (oneq_mat[[0, 0]], oneq_mat[[0, 1]], _zero, _zero);
+    (
+        output[[1, 0]],
+        output[[1, 1]],
+        output[[1, 2]],
+        output[[1, 3]],
+    ) = (oneq_mat[[1, 0]], oneq_mat[[1, 1]], _zero, _zero);
+    (
+        output[[2, 0]],
+        output[[2, 1]],
+        output[[2, 2]],
+        output[[2, 3]],
+    ) = (_zero, _zero, oneq_mat[[0, 0]], oneq_mat[[0, 1]]);
+    (
+        output[[3, 0]],
+        output[[3, 1]],
+        output[[3, 2]],
+        output[[3, 3]],
+    ) = (_zero, _zero, oneq_mat[[1, 0]], oneq_mat[[1, 1]]);
+}
+
 // Compute `kron(mat, identity)` for 2x2 matrix inputs
 fn kron_oneq_id2(oneq_mat: ArrayView2<Complex64>) -> Array2<Complex64> {
     let _zero = Complex64::new(0., 0.);
@@ -40,6 +71,35 @@ fn kron_oneq_id2(oneq_mat: ArrayView2<Complex64>) -> Array2<Complex64> {
         [oneq_mat[[1, 0]], _zero, oneq_mat[[1, 1]], _zero],
         [_zero, oneq_mat[[1, 0]], _zero, oneq_mat[[1, 1]]],
     ]
+}
+
+// Compute `kron(mat, identity)` for 2x2 matrix inputs
+fn kron_oneq_id2_pre_alloc(output: &mut Array2<Complex64>, oneq_mat: ArrayView2<Complex64>) {
+    let _zero = Complex64::new(0., 0.);
+    (
+        output[[0, 0]],
+        output[[0, 1]],
+        output[[0, 2]],
+        output[[0, 3]],
+    ) = (oneq_mat[[0, 0]], _zero, oneq_mat[[0, 1]], _zero);
+    (
+        output[[1, 0]],
+        output[[1, 1]],
+        output[[1, 2]],
+        output[[1, 3]],
+    ) = (_zero, oneq_mat[[0, 0]], _zero, oneq_mat[[0, 1]]);
+    (
+        output[[2, 0]],
+        output[[2, 1]],
+        output[[2, 2]],
+        output[[2, 3]],
+    ) = (oneq_mat[[1, 0]], _zero, oneq_mat[[1, 1]], _zero);
+    (
+        output[[3, 0]],
+        output[[3, 1]],
+        output[[3, 2]],
+        output[[3, 3]],
+    ) = (_zero, oneq_mat[[1, 0]], _zero, oneq_mat[[1, 1]]);
 }
 
 /// Return the matrix Operator resulting from a block of Instructions.
@@ -58,19 +118,25 @@ pub fn blocks_to_matrix(
         [] => Array2::eye(4),
         _ => unreachable!(),
     };
+    let mut result = Array2::<Complex64>::default((4, 4));
     for (op_matrix, q_list) in op_list.into_iter().skip(1) {
         let op_matrix = op_matrix.as_array();
-
-        let result = match q_list.as_slice() {
-            [0] => Some(kron_id2_oneq(op_matrix)),
-            [1] => Some(kron_oneq_id2(op_matrix)),
-            [1, 0] => Some(change_basis(op_matrix)),
-            [] => Some(Array2::eye(4)),
-            _ => None,
-        };
-        matrix = match result {
-            Some(result) => result.dot(&matrix),
-            None => op_matrix.dot(&matrix),
+        match q_list.as_slice() {
+            [0] => {
+                kron_id2_oneq_pre_alloc(&mut result, op_matrix);
+                matrix = result.dot(&matrix);
+            }
+            [1] => {
+                kron_oneq_id2_pre_alloc(&mut result, op_matrix);
+                matrix = result.dot(&matrix);
+            }
+            [1, 0] => {
+                matrix = change_basis(op_matrix).dot(&matrix);
+            }
+            [] => (),
+            _ => {
+                matrix = op_matrix.dot(&matrix);
+            }
         };
     }
     Ok(matrix.into_pyarray(py).to_owned())
