@@ -20,7 +20,6 @@ use num_complex::Complex64;
 use numpy::ndarray::linalg::kron;
 use numpy::ndarray::{aview2, Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
-use smallvec::SmallVec;
 
 use qiskit_circuit::bit_data::BitData;
 use qiskit_circuit::circuit_instruction::{operation_type_to_py, CircuitInstruction};
@@ -79,8 +78,6 @@ pub fn blocks_to_matrix(
     let input_matrix = get_matrix_from_inst(py, &first_node.instruction)?;
     let mut matrix: Array2<Complex64> = match bit_map
         .map_bits(first_node.instruction.qubits.bind(py).iter())?
-        .map(|x| x as u8)
-        .collect::<SmallVec<[u8; 2]>>()
         .as_slice()
     {
         [0] => kron(&identity, &input_matrix),
@@ -92,12 +89,10 @@ pub fn blocks_to_matrix(
     };
     for node in op_list.into_iter().skip(1) {
         let op_matrix = get_matrix_from_inst(py, &node.instruction)?;
-        let q_list = bit_map
+        let result = match bit_map
             .map_bits(node.instruction.qubits.bind(py).iter())?
-            .map(|x| x as u8)
-            .collect::<SmallVec<[u8; 2]>>();
-
-        let result = match q_list.as_slice() {
+            .as_slice()
+        {
             [0] => Some(kron(&identity, &op_matrix)),
             [1] => Some(kron(&op_matrix, &identity)),
             [1, 0] => Some(change_basis(op_matrix.view())),

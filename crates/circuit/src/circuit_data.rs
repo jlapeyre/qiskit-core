@@ -1131,11 +1131,11 @@ impl CircuitData {
         let py = inst.py();
         let qubits = Interner::intern(
             &mut self.qargs_interner,
-            InternerKey::Value(self.qubits.map_bits(inst.qubits.bind(py))?.collect()),
+            InternerKey::Value(self.qubits.map_bits(inst.qubits.bind(py))?),
         )?;
         let clbits = Interner::intern(
             &mut self.cargs_interner,
-            InternerKey::Value(self.clbits.map_bits(inst.clbits.bind(py))?.collect()),
+            InternerKey::Value(self.clbits.map_bits(inst.clbits.bind(py))?),
         )?;
         Ok(PackedInstruction {
             op: inst.operation.clone(),
@@ -1151,11 +1151,11 @@ impl CircuitData {
     fn pack_owned(&mut self, py: Python, inst: &CircuitInstruction) -> PyResult<PackedInstruction> {
         let qubits = Interner::intern(
             &mut self.qargs_interner,
-            InternerKey::Value(self.qubits.map_bits(inst.qubits.bind(py))?.collect()),
+            InternerKey::Value(self.qubits.map_bits(inst.qubits.bind(py))?),
         )?;
         let clbits = Interner::intern(
             &mut self.cargs_interner,
-            InternerKey::Value(self.clbits.map_bits(inst.clbits.bind(py))?.collect()),
+            InternerKey::Value(self.clbits.map_bits(inst.clbits.bind(py))?),
         )?;
         Ok(PackedInstruction {
             op: inst.operation.clone(),

@@ -139,17 +139,15 @@ where
     pub fn map_bits<'py>(
         &self,
         bits: impl IntoIterator<Item = Bound<'py, PyAny>>,
-    ) -> Result<impl Iterator<Item = T>, BitNotFoundError<'py>> {
-        let v: Result<Vec<_>, _> = bits
-            .into_iter()
+    ) -> Result<Vec<T>, BitNotFoundError<'py>> {
+        bits.into_iter()
             .map(|b| {
                 self.indices
                     .get(&BitAsKey::new(&b))
                     .copied()
                     .ok_or_else(|| BitNotFoundError(b))
             })
-            .collect();
-        v.map(|x| x.into_iter())
+            .collect()
     }
 
     /// Map the provided native indices to the corresponding Python
