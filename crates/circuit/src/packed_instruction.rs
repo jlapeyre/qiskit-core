@@ -135,7 +135,8 @@ impl PackedOperation {
     /// **Panics** if the object represents a standard gate; see `try_pointer`.
     #[inline]
     fn pointer(&self) -> NonNull<()> {
-        self.try_pointer().unwrap()
+        self.try_pointer()
+            .expect("Qiskit bug: PackedOperation contains a StandardGate, expecting a pointer")
     }
 
     /// Get the contained pointer to the `PyGate`/`PyInstruction`/`PyOperation` that this object
@@ -152,7 +153,7 @@ impl PackedOperation {
                 let ptr = (self.0 & Self::POINTER_MASK) as *mut ();
                 // SAFETY: `PackedOperation` can only be constructed from a pointer via `Box`, which
                 // is always non-null (except in the case that we're partway through a `Drop`).
-                Some(unsafe { NonNull::new_unchecked(ptr) })
+                Some(NonNull::new(ptr).expect("Qiskit bug: Expected a non-null pointer"))
             }
         }
     }
@@ -163,17 +164,20 @@ impl PackedOperation {
     /// `try_standard_gate`.
     #[inline]
     pub fn standard_gate(&self) -> StandardGate {
-        self.try_standard_gate().unwrap()
+        self.try_standard_gate()
+            .expect("Qiskit bug: PackedOperation contains a pointer, expecting a standard gate")
     }
 
     /// Get the contained `StandardGate`, if any.
     #[inline]
     pub fn try_standard_gate(&self) -> Option<StandardGate> {
         match self.discriminant() {
-            PackedOperationType::StandardGate => ::bytemuck::checked::try_cast(
-                ((self.0 & Self::STANDARD_GATE_MASK) >> Self::DISCRIMINANT_BITS) as u8,
-            )
-            .ok(),
+            PackedOperationType::StandardGate => Some(
+                ::bytemuck::checked::try_cast(
+                    ((self.0 & Self::STANDARD_GATE_MASK) >> Self::DISCRIMINANT_BITS) as u8,
+                )
+                .expect("Qiskit bug: Discriminant encodes no StandardGate"),
+            ),
             _ => None,
         }
     }
