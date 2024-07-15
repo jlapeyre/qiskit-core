@@ -21,7 +21,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySequence, PyString, PyTuple};
 use pyo3::{intern, IntoPy, PyObject, PyResult, ToPyObject};
 use rustworkx_core::petgraph::stable_graph::NodeIndex;
-use smallvec::smallVec;
+use smallvec::{SmallVec, smallvec};
 
 /// Parent class for DAGOpNode, DAGInNode, and DAGOutNode.
 #[pyclass(module = "qiskit._accelerate.circuit", subclass)]
@@ -98,7 +98,10 @@ pub struct DAGOpNode {
     pub sort_key: PyObject,
 }
 
+#[pymethods]
 impl DAGOpNode {
+    #[new]
+    #[pyo3(signature = (op, qargs=None, cargs=None, params=smallvec![], label=None, duration=None, unit=None, condition=None, dag=None))]
     pub fn new<T1, T2, U1, U2>(
         py: Python,
         node: NodeIndex,
@@ -127,77 +130,92 @@ impl DAGOpNode {
 
 #[pymethods]
 impl DAGOpNode {
-    #[allow(clippy::too_many_arguments)]
-    #[new]
-    #[pyo3(signature = (op, qargs=None, cargs=None, params=smallvec![], label=None, duration=None, unit=None, condition=None, dag=None))]
-    fn new(
-        py: Python,
-        op: crate::circuit_instruction::OperationInput,
-        qargs: Option<TupleLikeArg>,
-        cargs: Option<TupleLikeArg>,
-        params: smallvec::SmallVec<[crate::operations::Param; 3]>,
-        label: Option<String>,
-        duration: Option<PyObject>,
-        unit: Option<String>,
-        condition: Option<PyObject>,
-        dag: Option<&Bound<PyAny>>,
-    ) -> PyResult<Py<Self>> {
-        let qargs = qargs.map_or_else(|| PyTuple::empty_bound(py), |q| q.value);
-        let cargs = cargs.map_or_else(|| PyTuple::empty_bound(py), |c| c.value);
+    // #[allow(clippy::too_many_arguments)]
+    // #[new]
+    // #[pyo3(signature = (op, qargs=None, cargs=None, params=smallvec![], label=None, duration=None, unit=None, condition=None, dag=None))]
+    // fn new(
+    //     py: Python,
+    //     op: crate::circuit_instruction::OperationInput,
+    //     qargs: Option<TupleLikeArg>,
+    //     cargs: Option<TupleLikeArg>,
+    //     params: smallvec::SmallVec<[crate::operations::Param; 3]>,
+    //     label: Option<String>,
+    //     duration: Option<PyObject>,
+    //     unit: Option<String>,
+    //     condition: Option<PyObject>,
+    //     dag: Option<&Bound<PyAny>>,
+    // ) -> PyResult<Py<Self>> {
+    //     let qargs = qargs.map_or_else(|| PyTuple::empty_bound(py), |q| q.value);
+    //     let cargs = cargs.map_or_else(|| PyTuple::empty_bound(py), |c| c.value);
 
-        let sort_key = match dag {
-            Some(dag) => {
-                let cache = dag
-                    .getattr(intern!(py, "_key_cache"))?
-                    .downcast_into_exact::<PyDict>()?;
-                let cache_key = PyTuple::new_bound(py, [&qargs, &cargs]);
-                match cache.get_item(&cache_key)? {
-                    Some(key) => key,
-                    None => {
-                        let indices: PyResult<Vec<_>> = qargs
-                            .iter()
-                            .chain(cargs.iter())
-                            .map(|bit| {
-                                dag.call_method1(intern!(py, "find_bit"), (bit,))?
-                                    .getattr(intern!(py, "index"))
-                            })
-                            .collect();
-                        let index_strs: Vec<_> =
-                            indices?.into_iter().map(|i| format!("{:04}", i)).collect();
-                        let key = PyString::new_bound(py, index_strs.join(",").as_str());
-                        cache.set_item(&cache_key, &key)?;
-                        key.into_any()
-                    }
-                }
-            }
-            None => qargs.str()?.into_any(),
-        };
+    //     let sort_key = match dag {
+    //         Some(dag) => {
+    //             let cache = dag
+    //                 .getattr(intern!(py, "_key_cache"))?
+    //                 .downcast_into_exact::<PyDict>()?;
+    //             let cache_key = PyTuple::new_bound(py, [&qargs, &cargs]);
+    //             match cache.get_item(&cache_key)? {
+    //                 Some(key) => key,
+    //                 None => {
+    //                     let indices: PyResult<Vec<_>> = qargs
+    //                         .iter()
+    //                         .chain(cargs.iter())
+    //                         .map(|bit| {
+    //                             dag.call_method1(intern!(py, "find_bit"), (bit,))?
+    //                                 .getattr(intern!(py, "index"))
+    //                         })
+    //                         .collect();
+    //                     let index_strs: Vec<_> =
+    //                         indices?.into_iter().map(|i| format!("{:04}", i)).collect();
+    //                     let key = PyString::new_bound(py, index_strs.join(",").as_str());
+    //                     cache.set_item(&cache_key, &key)?;
+    //                     key.into_any()
+    //                 }
+    //             }
+    //         }
+    //         None => qargs.str()?.into_any(),
+    //     };
 
-        let mut instruction = CircuitInstruction::py_new(
-            py, op, None, None, params, label, duration, unit, condition,
-        )?;
-        instruction.qubits = qargs.into();
-        instruction.clbits = cargs.into();
+    //     let mut instruction = CircuitInstruction::py_new(
+    //         py, op, None, None, params, label, duration, unit, condition,
+    //     )?;
+    //     instruction.qubits = qargs.into();
+    //     instruction.clbits = cargs.into();
 
-        Py::new(
-            py,
-            (
-                DAGOpNode {
-                    instruction: CircuitInstruction {
-                        operation: res.operation,
-                        qubits: qargs.unbind(),
-                        clbits: cargs.unbind(),
-                        params: res.params,
-                        extra_attrs,
-                        #[cfg(feature = "cache_pygates")]
-                        py_op: Some(op),
-                    },
-                    sort_key: sort_key.unbind(),
-                },
-                DAGNode { node: None },
-            ),
-        )
-    }
+    //     let extra_attrs = if label.is_some()
+    //         || duration.is_some()
+    //         || unit.is_some()
+    //         || condition.is_some()
+    //     {
+    //         Some(Box::new(ExtraInstructionAttributes {
+    //             label: label,
+    //             duration: duration,
+    //             unit: unit,
+    //             condition: condition,
+    //         }))
+    //     } else {
+    //         None
+    //     };
+
+    //     Py::new(
+    //         py,
+    //         (
+    //             DAGOpNode {
+    //                 instruction: CircuitInstruction {
+    //                     operation: op,
+    //                     qubits: qargs.unbind(),
+    //                     clbits: cargs.unbind(),
+    //                     params: params,
+    //                     extra_attrs,
+    //                     #[cfg(feature = "cache_pygates")]
+    //                     py_op: Some(op),
+    //                 },
+    //                 sort_key: sort_key.unbind(),
+    //             },
+    //             DAGNode { node: None },
+    //         ),
+    //     )
+    // }
 
     #[staticmethod]
     fn from_instruction(

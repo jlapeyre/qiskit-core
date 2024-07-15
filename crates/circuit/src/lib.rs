@@ -21,8 +21,6 @@ pub mod parameter_table;
 pub mod slice;
 pub mod util;
 
-
-mod bit_data;
 mod dag_node;
 mod dot_utils;
 mod error;

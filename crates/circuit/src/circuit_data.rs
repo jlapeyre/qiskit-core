@@ -19,7 +19,7 @@ use crate::circuit_instruction::{
     PackedInstruction,
 };
 use crate::imports::{BUILTIN_LIST, DEEPCOPY, QUBIT};
-use crate::interner::{IndexedInterner, Interner, InternerKey};
+use crate::interner::{IndexedInterner, Interner};
 use crate::operations::{Operation, OperationType, Param, StandardGate};
 use crate::parameter_table::{ParamEntry, ParamTable, GLOBAL_PHASE_INDEX};
 use crate::slice::{PySequenceIndex, SequenceIndex};
@@ -31,7 +31,7 @@ use pyo3::types::{PyList, PySet, PyTuple, PyType};
 use pyo3::{intern, PyTraverseError, PyVisit};
 
 use hashbrown::{HashMap, HashSet};
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 /// A container for :class:`.QuantumCircuit` instruction listings that stores
 /// :class:`.CircuitInstruction` instances in a packed form by interning
