@@ -1872,7 +1872,8 @@ def _format(operand):
 
         let circuit_to_dag = CIRCUIT_TO_DAG.get_bound(py);
 
-        for node in self.op_nodes(py, Some(CONTROL_FLOW_OP.get_bound(py).downcast()?), true)? {
+        for node in self.py_op_nodes(py, Some(CONTROL_FLOW_OP.get_bound(py).downcast()?), true)? {
+//        for node in self.op_nodes(true) {
             let node = node.bind(py);
             let inner = if node.is_instance(self.circuit_module.for_loop_op.bind(py))? {
                 let indexset = node.getattr("params")?.get_item(0)?;
@@ -1934,7 +1935,7 @@ def _format(operand):
             let circuit_to_dag = CIRCUIT_TO_DAG.get_bound(py);
             let mut node_lookup: HashMap<NodeIndex, usize> = HashMap::new();
 
-            for node in self.op_nodes(py, Some(CONTROL_FLOW_OP.get_bound(py).downcast()?), true)? {
+            for node in self.py_op_nodes(py, Some(CONTROL_FLOW_OP.get_bound(py).downcast()?), true)? {
                 let node = node.bind(py);
                 let weight = if node.is_instance(self.circuit_module.for_loop_op.bind(py))? {
                     node.getattr("params")?.get_item(0)?.len()?
@@ -3539,7 +3540,7 @@ def _format(operand):
                 }
                 let circuit_to_dag = CIRCUIT_TO_DAG.get_bound(py);
                 for node in
-                    dag.op_nodes(py, Some(CONTROL_FLOW_OP.get_bound(py).downcast()?), true)?
+                    dag.py_op_nodes(py, Some(CONTROL_FLOW_OP.get_bound(py).downcast()?), true)?
                 {
                     let raw_blocks = node.getattr(py, "op")?.getattr(py, "blocks")?;
                     let blocks: &Bound<PyList> = raw_blocks.downcast_bound::<PyList>(py)?;
